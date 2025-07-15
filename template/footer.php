@@ -12,7 +12,7 @@
             </div>
             <hr>
             <div class="text-center">
-                <p>&copy; 2024 Cybersecurity Learning Platform. Built for educational purposes.</p>
+                <p>&copy; <?php echo date('Y');?> Cybersecurity Learning Platform. Built for educational purposes.</p>
             </div>
         </div>
     </footer>
