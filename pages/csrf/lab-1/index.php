@@ -6,24 +6,43 @@ require_once '../../../template/header.php';
 $message = '';
 $is_login = false;
 
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+function validateCSRFToken() {
+    if (!isset($_POST['csrf_token']) || !isset($_SESSION['csrf_token']) ||
+        !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        return false;
+    }
+    return true;
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $email = $_POST['email'] ?? '';
-    $password = $_POST['password'] ?? '';
-   
-    // VULNERABLE CODE - Do not use in production!
-    $query = "SELECT * FROM users WHERE email = '$email' AND password = '" . sha1($password) . "'";
-    
-    try {
-        $result = $pdo->query($query);
-        if ($result && $result->rowCount() > 0) {
-            $user = $result->fetch(PDO::FETCH_ASSOC);
-            $message = "Login successful! Welcome, " . $user['email'];
-            $is_login = true;
-        } else {
-            $message = "Invalid email or password.";
+    if(validateCSRFToken()){
+        $email = $_POST['email'] ?? '';
+        $password = $_POST['password'] ?? '';
+        
+        try {
+            $query = "SELECT * FROM users WHERE email = ? AND password = ?";
+            // Prepare a SQL statement with a placeholder
+            $result = $pdo->prepare($query);
+            // Bind the parameter to the placeholder
+            // Execute the prepared statement
+            $result->execute([$email,sha1($password)]);
+            // Fetch the result
+            if ($result && $result->rowCount() > 0) {
+                $user = $result->fetch(PDO::FETCH_ASSOC);
+                $message = "Login successful! Welcome, " . $user['email'];
+                $is_login = true;
+            } else {
+                $message = "Invalid email or password.";
+            }
+        } catch (PDOException $e) {
+            $message = "Database error: " . $e->getMessage();
         }
-    } catch (PDOException $e) {
-        $message = "Database error: " . $e->getMessage();
+    }else{
+        $message = "Invalid CSRF token. Access denied.";
     }
 }
 ?>
@@ -68,6 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 
                                 <?php if (!$is_login): ?>
                                 <form method="post">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                     <div class="mb-3">
                                         <label for="email" class="form-label">Email:</label>
                                         <input type="text" class="form-control" id="email" name="email" required>

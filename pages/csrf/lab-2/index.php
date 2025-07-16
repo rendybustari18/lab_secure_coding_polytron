@@ -10,9 +10,18 @@ header("Access-Control-Allow-Headers: Content-Type");
 
 $message = '';
 
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
+function validateCSRFToken() {
+    if (!isset($_POST['csrf_token']) || !isset($_SESSION['csrf_token']) ||
+        !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        return false;
+    }
+    return true;
+}
 
-// VULNERABLE CODE - URL Parameter SQL Injection
 $query = "SELECT * FROM users WHERE id = 3";
 
 try {
@@ -25,12 +34,21 @@ try {
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $email = $_POST['email'] ?? '';
-    $username = $_POST['username'] ?? '';
+    if (validateCSRFToken()) {
+        $email = $_POST['email'] ?? '';
+        $username = $_POST['username'] ?? '';
 
-    $sql =  "UPDATE users SET username = '$username', email = '$email' WHERE id = 3";
-    $pdo->query($sql);
-    $message = "Update profile successful";
+        $sql =  "UPDATE users SET username = ?, email = ? WHERE id = 3";
+        
+        // Prepare a SQL statement with a placeholder
+        $stmt = $pdo->prepare($sql);
+        // Bind the parameter to the placeholder
+        // Execute the prepared statement
+        $stmt->execute([$username,$email]);
+        $message = "Update profile successful";
+    }else{
+        $message = "Invalid CSRF token. Access denied.";
+    }
 }
 ?>
 
@@ -73,6 +91,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <?php endif; ?>
 
                                 <form method="post">
+
+                                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                     <div class="mb-3">
                                         <label for="name" class="form-label">Username:</label>
                                         <input type="text" class="form-control" id="username" name="username" value="<?php echo htmlspecialchars($user_data['username']); ?>" required>
