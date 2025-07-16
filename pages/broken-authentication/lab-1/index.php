@@ -7,28 +7,95 @@ $message = '';
 $attempts = $_SESSION['login_attempts'] ?? 0;
 $alert_class = "alert-danger";
 $is_login = false;
+$ttl = 5*60;
+$limit = 5;
+
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+if(empty($_SESSION['login_attempts_lock'])){
+    $_SESSION['login_attempts_lock'] = 0;
+}
+
+if(empty($_SESSION['login_attempts_time_lock'])){
+    $_SESSION['login_attempts_time_lock'] = 0;
+}
+
+$attempts_lock = $_SESSION['login_attempts_lock'];
+
+function validateCSRFToken() {
+    if (!isset($_POST['csrf_token']) || !isset($_SESSION['csrf_token']) ||
+        !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        return false;
+    }
+    return true;
+}
+
+function validate_password(string $password): array {
+    $errors = [];
+
+    if (strlen($password) < 8) {
+        $errors[] = 'Password must be at least 8 characters long.';
+    }
+    if (!preg_match('/[a-z]/', $password)) {
+        $errors[] = 'Password must include at least one lowercase letter.';
+    }
+    if (!preg_match('/[A-Z]/', $password)) {
+        $errors[] = 'Password must include at least one uppercase letter.';
+    }
+    if (!preg_match('/\d/', $password)) {
+        $errors[] = 'Password must include at least one number.';
+    }
+    if (!preg_match('/[\W_]/', $password)) {
+        $errors[] = 'Password must include at least one special character.';
+    }
+
+    return $errors;
+}
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $email = $_POST['email'] ?? '';
-    $password = $_POST['password'] ?? '';
-    
-    $_SESSION['login_attempts'] = $attempts + 1;
+    if(time() - $_SESSION['login_attempts_time_lock'] > $ttl){
+        $_SESSION['login_attempts_time_lock'] = 0;
+    }
 
-    $query = "SELECT * FROM users WHERE email = '$email' AND password = '" . sha1($password) . "'";
+    if(!validateCSRFToken()){
+        $message = "Invalid CSRF token. Access denied.";
+    }else if(time() - $_SESSION['login_attempts_time_lock'] < $ttl){
+        $message = "Your account is locked. Please try again later in 5 minutes.";
+    }else{
+        $email = $_POST['email'] ?? '';
+        $password = $_POST['password'] ?? '';
+        
+        $_SESSION['login_attempts'] = $attempts + 1;
+        $_SESSION['login_attempts_lock'] = $_SESSION['login_attempts_lock'] + 1;
 
-    try {
-        $result = $pdo->query($query);
-        if ($result && $result->rowCount() > 0) {
-            $user = $result->fetch(PDO::FETCH_ASSOC);
-            $message = "Login successful! Weak password detected: " . htmlspecialchars($password);
-            $alert_class = "alert-info";
-            $is_login = true;
-        } else {
-            $_SESSION['login_attempts'] = ($_SESSION['login_attempts'] ?? 0) + 1;
-            $message = "Invalid credentials. Attempt #" . $_SESSION['login_attempts'];
+        $query = "SELECT * FROM users WHERE email = ? AND password = ?";
+
+        try {
+            $result = $pdo->prepare($query);
+            $result->execute([$email,sha1($password)]);
+            if ($result && $result->rowCount() > 0) {
+                $user = $result->fetch(PDO::FETCH_ASSOC);
+                $password_testing = htmlspecialchars($password);
+                $errors   = validate_password($password_testing);
+                if (count($errors) > 0) {
+                    $message = "Login successful! Weak password detected: " . htmlspecialchars($password);
+                }else{
+                    $message = "Login successful!";
+                }
+                $alert_class = "alert-info";
+                $is_login = true;
+            } else {
+                $message = "Invalid credentials. Attempt #" . $_SESSION['login_attempts'];
+                if($_SESSION['login_attempts_lock'] >= $limit){
+                    $_SESSION['login_attempts_time_lock'] = time();
+                    $_SESSION['login_attempts_lock'] = 0;
+                }
+            }
+        } catch (PDOException $e) {
+            $error_message = "Database error: " . $e->getMessage();
         }
-    } catch (PDOException $e) {
-        $error_message = "Database error: " . $e->getMessage();
     }
 }
 ?>
@@ -72,6 +139,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <?php endif; ?>
                                 <?php if(!$is_login): ?>
                                 <form method="post">
+
+                                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                     <div class="mb-3">
                                         <label for="email" class="form-label">email:</label>
                                         <input type="text" class="form-control" id="email" name="email" required>
@@ -87,6 +156,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <?php endif; ?>
                                 <div class="mt-3">
                                     <small class="text-muted">Login attempts: <?php echo $attempts; ?></small>
+                                    <br>
+                                    <small class="text-muted">Lock Login attempts: <?php echo $attempts_lock; ?></small>
                                 </div>
                             </div>
                         </div>
