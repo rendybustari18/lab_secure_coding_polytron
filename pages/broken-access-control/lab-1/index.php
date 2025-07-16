@@ -6,17 +6,24 @@ require_once '../../../template/header.php';
 $message = '';
 $user_role = $_SESSION['user_role'] ?? 'user';
 $is_login = false;
+$is_admin = false;
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $email = $_POST['email'] ?? '';
     $password = $_POST['password'] ?? '';
-    $role = $_POST['role'] ?? 'user'; // VULNERABLE - Role can be manipulated
    
     $query = "SELECT * FROM users WHERE email = '$email' AND password = '" . sha1($password) . "'";
     try {
         $result = $pdo->query($query);
         if ($result && $result->rowCount() > 0) {
             $user = $result->fetch(PDO::FETCH_ASSOC);
+            $role = $user['role']; // VULNERABLE - Role can be manipulated
              $_SESSION['user_role'] = $role;
+             $user_role = $role;
+             if ($role == 'admin') {
+                $is_admin = true;
+             } else {
+                $is_admin = false;
+             }
              $is_login = true;
         } else {
             $message = "Invalid credentials";
@@ -65,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                         <?php echo $message; ?>
                                     </div>
                                 <?php endif; ?>
-                                <?php if($is_login && !$is_admin): ?>
+                                <?php if($is_login): ?>
                                     <div class="alert alert-success" role="alert">
                                         Login successful! Role: <?php echo htmlspecialchars($user_role); ?>
                                     </div>
