@@ -10,7 +10,8 @@ define('DB_PORT', '3306');
 define('DB_NAME', 'db_secure_coding_polytron');
 define('DB_USER', 'root');
 define('DB_PASS', 'root');
-
+define('JWT_SECRET',"superSecretJWTkey123");
+define('API_KEY',"sk_live_51ABCxyzPrivateKey!");
 #define('DB_HOST', 'localhost');
 #define('DB_PORT', '3306');
 #define('DB_NAME', 'db_secure_coding');
