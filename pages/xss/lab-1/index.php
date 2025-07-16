@@ -25,6 +25,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $name = $_POST['name'] ?? '';
     $bio = $_POST['bio'] ?? '';
     
+    $name = strip_tags($name);
+    $bio = strip_tags($bio);
+
     // VULNERABLE CODE - No XSS protection
     $query = "UPDATE user_profiles SET name = ?, bio = ? where user_id = $userID";
     $stmt = $pdo->prepare($query);

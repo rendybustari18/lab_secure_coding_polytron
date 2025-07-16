@@ -4,7 +4,11 @@ require_once '../../../config/env.php';
 require_once '../../../template/header.php';
 
 $search_term = $_GET['search'] ?? '';
+$search_term = strip_tags($search_term);
+
 $error_message = $_GET['error'] ?? '';
+$error_message = strip_tags($error_message);
+
 ?>
 
 <div class="container-fluid">
