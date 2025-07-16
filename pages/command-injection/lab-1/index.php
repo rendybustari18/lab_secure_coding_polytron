@@ -9,12 +9,14 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $domain = $_POST['domain'] ?? '';
     
-    if ($domain) {
+    if ($domain && filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME)) {
         // VULNERABLE CODE - Command injection vulnerability
         $output =  system("nslookup $domain");
         if ($output == null): 
             $output = "No output returned. Please check the domain.";
         endif;
+    }else{
+        $output = "Invalid domain.";
     }
 }
 ?>
