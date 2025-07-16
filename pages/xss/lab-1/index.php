@@ -9,7 +9,9 @@ $userID = 2;
 
 // Fetch existing profiles
 try {
-    $result = $pdo->query("SELECT * FROM user_profiles where user_id = $userID");
+    $query = "SELECT * FROM user_profiles where user_id = ?";
+    $result = $pdo->prepare($query);
+    $result->execute([$userID]);
     $profiles = $result->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     // Table might not exist, create it
@@ -29,13 +31,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $bio = strip_tags($bio);
 
     // VULNERABLE CODE - No XSS protection
-    $query = "UPDATE user_profiles SET name = ?, bio = ? where user_id = $userID";
+    $query = "UPDATE user_profiles SET name = ?, bio = ? where user_id = ?";
     $stmt = $pdo->prepare($query);
     
-    if ($stmt->execute([$name, $bio])) {
+    if ($stmt->execute([$name, $bio, $userID])) {
         $message = "Profile updated successfully!";
         // Refresh profiles
-        $result = $pdo->query("SELECT * FROM user_profiles where user_id = $userID");
+        $query = "SELECT * FROM user_profiles where user_id = ?";
+        $result = $pdo->prepare($query);
+        $result->execute([$userID]);
         $profiles = $result->fetchAll(PDO::FETCH_ASSOC);
     } else {
         $message = "Error updating profile.";
