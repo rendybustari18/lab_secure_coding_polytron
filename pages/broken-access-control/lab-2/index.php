@@ -8,7 +8,7 @@ if (isset($_GET['user_id'])) {
 
 }
 
-$current_user = $user_id ?? null;
+$current_user = $user_id ==$_SESSION['login_user_id'] ?? null;
 ?>
 
 <div class="container-fluid">
