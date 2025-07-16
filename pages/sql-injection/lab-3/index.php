@@ -9,11 +9,15 @@ $error_message = '';
 if (isset($_GET['id'])) {
     $id = $_GET['id'];
     
-    // VULNERABLE CODE - URL Parameter SQL Injection
-    $query = "SELECT * FROM user_profiles WHERE id = $id";
+    $query = "SELECT * FROM user_profiles WHERE id = :id";
     
     try {
-        $result = $pdo->query($query);
+        $result = $pdo->prepare($query);
+        // Bind the parameter to the placeholder
+        $result->bindParam(':id', $id);
+        // Execute the prepared statement
+        $result->execute();
+        // Fetch the result
         if ($result) {
             $user_data = $result->fetch(PDO::FETCH_ASSOC);
         }

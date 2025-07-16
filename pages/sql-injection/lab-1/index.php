@@ -9,12 +9,18 @@ $is_login = false;
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $email = $_POST['email'] ?? '';
     $password = $_POST['password'] ?? '';
-   
-    // VULNERABLE CODE - Do not use in production!
-    $query = "SELECT * FROM users WHERE email = '$email' AND password = '" . sha1($password) . "'";
+    $sha1_password = sha1($password);
+    $query = "SELECT * FROM users WHERE email = :email AND password = :password";
     
     try {
-        $result = $pdo->query($query);
+        // Prepare a SQL statement with a placeholder
+        $result = $pdo->prepare($query);
+        // Bind the parameter to the placeholder
+        $result->bindParam(':email', $email);
+        $result->bindParam(':password', $sha1_password);
+        // Execute the prepared statement
+        $result->execute();
+        // Fetch the result
         if ($result && $result->rowCount() > 0) {
             $user = $result->fetch(PDO::FETCH_ASSOC);
             $success_message = "Login successful! Welcome, " . $user['email'];
